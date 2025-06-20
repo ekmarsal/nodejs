@@ -76,3 +76,120 @@ app.post('/webhook', verifyWebhookSignature, (req, res) => {
         break;
       case 'item.created':
         handleItemCreated(payload);
+        break;
+        break;
+      case 'item.updated':
+        handleItemUpdated(payload);
+        break;
+      default:
+        console.log(`⚠️  Unhandled event type: ${event_type}`);
+    }
+    
+    // Always respond with 200 to acknowledge receipt
+    res.status(200).json({ 
+      status: 'success', 
+      message: 'Webhook processed successfully',
+      event_type: event_type,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error processing webhook:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Internal server error',
+      error: error.message 
+    });
+  }
+});
+
+// Event handlers
+function handleBookingCreated(booking) {
+  console.log('🎉 NEW BOOKING CREATED!');
+  console.log(`Booking ID: ${booking.display_id}`);
+  console.log(`Customer: ${booking.contact?.name || 'Unknown'}`);
+  console.log(`Email: ${booking.contact?.email || 'No email'}`);
+  console.log(`Amount: $${booking.amount || 0}`);
+  console.log(`Customers: ${booking.customer_count || 0}`);
+  
+  if (booking.availability?.item) {
+    console.log(`Tour: ${booking.availability.item.name}`);
+    console.log(`Date: ${booking.availability.start_datetime}`);
+  }
+  
+  console.log('✅ New booking processed');
+}
+
+function handleBookingUpdated(booking) {
+  console.log('📝 BOOKING UPDATED');
+  console.log(`Booking ID: ${booking.display_id}`);
+  console.log(`Status: ${booking.status}`);
+  console.log('✅ Booking update processed');
+}
+
+function handleBookingCancelled(booking) {
+  console.log('❌ BOOKING CANCELLED');
+  console.log(`Booking ID: ${booking.display_id}`);
+  console.log(`Customer: ${booking.contact?.name || 'Unknown'}`);
+  console.log('✅ Cancellation processed');
+}
+
+function handleItemCreated(item) {
+  console.log('🆕 NEW ITEM CREATED');
+  console.log(`Item: ${item.name}`);
+  console.log(`Shortname: ${item.shortname}`);
+  console.log('✅ New item processed');
+}
+
+function handleItemUpdated(item) {
+  console.log('🔄 ITEM UPDATED');
+  console.log(`Item: ${item.name}`);
+  console.log(`Shortname: ${item.shortname}`);
+  console.log('✅ Item update processed');
+}
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy',
+    service: 'FareHarbor Webhook Server',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    service: 'FareHarbor Webhook Server',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      webhook: 'POST /webhook - Receives FareHarbor webhooks',
+      health: 'GET /health - Health check'
+    },
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('❌ Unhandled error:', error);
+  res.status(500).json({ 
+    status: 'error', 
+    message: 'Internal server error',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log('🚀 FareHarbor Webhook Server Started');
+  console.log(`📡 Server running on port ${PORT}`);
+  console.log(`🌐 Webhook endpoint: /webhook`);
+  console.log(`❤️  Health check: /health`);
+  console.log(`⚙️  Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('🔗 Ready to receive FareHarbor webhooks!');
+});
+
+module.exports = app;
