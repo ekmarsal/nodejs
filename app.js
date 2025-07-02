@@ -6,21 +6,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware to parse JSON payloads
-app.use(express.json());
-
-// Middleware to capture raw body for signature verification
-app.use('/webhook', express.raw({ type: 'application/json' }), (req, res, next) => {
-  req.rawBody = req.body;
-  try {
-    req.body = JSON.parse(req.body.toString());
-  } catch (error) {
-    console.log('JSON parse error:', error.message);
-    console.log('Raw body:', req.body.toString());
-    req.body = {};
-  }
-  next();
-});
-
 // Webhook signature verification middleware
 function verifyWebhookSignature(req, res, next) {
   const signature = req.headers['x-fareharbor-signature'];
@@ -58,7 +43,11 @@ function verifyWebhookSignature(req, res, next) {
 }
 
 // Main webhook endpoint
-app.post('/webhook', verifyWebhookSignature, (req, res) => {
+app.post('/webhook', express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf; // Saves the raw body for signature verification
+  }
+}), verifyWebhookSignature, (req, res) => {
   const { event_type, payload, timestamp } = req.body;
   
   console.log('=== WEBHOOK RECEIVED ===');
