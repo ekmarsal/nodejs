@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware to parse JSON payloads
 // Webhook signature verification middleware
 function verifyWebhookSignature(req, res, next) {
   const signature = req.headers['x-fareharbor-signature'];
@@ -44,7 +45,7 @@ function verifyWebhookSignature(req, res, next) {
 // Main webhook endpoint
 app.post('/webhook', express.json({
   verify: (req, res, buf) => {
-    req.rawBody = buf; // Saves the raw body buffer for signature verification
+    req.rawBody = buf; // Saves the raw body for signature verification
   }
 }), verifyWebhookSignature, (req, res) => {
   const { event_type, payload, timestamp } = req.body;
@@ -70,7 +71,6 @@ app.post('/webhook', express.json({
         break;
       case 'item.created':
         handleItemCreated(payload);
-        break;
         break;
       case 'item.updated':
         handleItemUpdated(payload);
