@@ -44,6 +44,7 @@ function verifyWebhookSignature(req, res, next) {
 
 // Main webhook endpoint
 app.post('/webhook', express.json({
+  limit: '5mb', // 
   verify: (req, res, buf) => {
     req.rawBody = buf; // Saves the raw body for signature verification
   }
