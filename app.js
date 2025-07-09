@@ -75,13 +75,8 @@ app.use(express.json());
 // Middleware to capture raw body for signature verification
 app.use('/webhook', express.raw({ type: 'application/json' }), (req, res, next) => {
   req.rawBody = req.body;
-  try {
-  } catch (error) {
-    console.log('JSON parse error:', error.message);
-    console.log('Raw body:', req.body.toString());
-    req.body = {};
-  }
-  next();
+// Process the webhook data
+next();
 });
 
 // Webhook signature verification middleware
