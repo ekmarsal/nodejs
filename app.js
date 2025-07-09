@@ -597,6 +597,8 @@ app.listen(PORT, async () => {
   
   // Initialize database tables
   await initializeDatabase();
+  // Add sample data for testing
+    await addSampleData();
   
   console.log('🔗 Ready to receive FareHarbor webhooks!');
 });
