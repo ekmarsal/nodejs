@@ -97,28 +97,31 @@ function verifyWebhookSignature(req, res, next) {
     return next();
   }
   
-  if (!signature) {
-    console.error('No signature found in headers');
-    return res.status(401).json({ error: 'No signature provided' });
-  }
+// if (!signature) {
+// console.error('No signature found in headers');
+// return res.status(401).json({ error: 'No signature provided' });
+//  }
   
-  try {
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(req.rawBody)
-      .digest('hex');
-    
-    if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
-      console.log('Signature verified successfully');
-      next();
-    } else {
-      console.error('Invalid webhook signature');
-      res.status(401).json({ error: 'Invalid signature' });
-    }
-  } catch (error) {
-    console.error('Error verifying signature:', error);
-    res.status(401).json({ error: 'Signature verification failed' });
-  }
+ // try {
+//     const expectedSignature = crypto
+//         .createHmac('sha256', webhookSecret)
+//         .update(req.rawBody)
+//         .digest('hex');
+//
+//     if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+//         console.log('Signature verified successfully');
+//         next();
+//     } else {
+//         console.error('Invalid webhook signature');
+//         res.status(401).json({ error: 'Invalid signature' });
+//     }
+// } catch (error) {
+//     console.error('Error verifying signature:', error);
+// }
+ // } catch (error) {
+//     console.error('Error verifying signature:', error);
+//     res.status(401).json({ error: 'Signature verification failed' });
+// }
 }
 
 // Database helper functions
