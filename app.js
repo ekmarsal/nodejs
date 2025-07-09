@@ -76,7 +76,6 @@ app.use(express.json());
 app.use('/webhook', express.raw({ type: 'application/json' }), (req, res, next) => {
   req.rawBody = req.body;
   try {
-    req.body = JSON.parse(req.body.toString());
   } catch (error) {
     console.log('JSON parse error:', error.message);
     console.log('Raw body:', req.body.toString());
