@@ -333,7 +333,7 @@ async function saveBooking(bookingData, customerId) {
 }
 
 // Main webhook endpoint
-app.post('/webhook', verifyWebhookSignature, async (req, res) => {
+app.post('/webhook', async (req, res) => {
   const { event_type, payload, timestamp } = req.body;
   
   console.log('=== WEBHOOK RECEIVED ===');
