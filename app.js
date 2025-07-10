@@ -582,6 +582,39 @@ app.get('/', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
+// Test endpoint to see raw webhook data from FareHarbor
+app.post('/test-webhook', (req, res) => {
+    console.log('=== TEST WEBHOOK RECEIVED ===');
+    console.log('Time:', new Date().toISOString());
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Raw Body:', req.rawBody);
+    console.log('=============================');
+    
+    // Respond immediately to FareHarbor
+    res.status(200).json({
+        status: 'received',
+        message: 'Test webhook data logged successfully',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Test endpoint to check what's in your database
+app.get('/debug-data', async (req, res) => {
+    try {
+        const bookings = await pool.query('SELECT * FROM bookings ORDER BY created_at DESC');
+        const webhookEvents = await pool.query('SELECT * FROM webhook_events ORDER BY processed_at DESC LIMIT 10');
+        
+        res.json({
+            totalBookings: bookings.rows.length,
+            recentBookings: bookings.rows,
+            recentWebhookEvents: webhookEvents.rows,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Error handling middleware
 app.use((error, req, res, next) => {
