@@ -298,6 +298,29 @@ async function saveOrUpdateCustomer(customerData) {
 
 async function saveBooking(bookingData, customerId) {
   try {
+    // Handle both real FareHarbor format and sample data format
+    const fareharborId = bookingData.display_id || bookingData.pk || bookingData.id;
+    const customerEmail = bookingData.contact?.email || bookingData.customer?.email || bookingData.customer_email;
+    const customerName = bookingData.contact?.name || bookingData.customer?.name || bookingData.customer_name;
+    const tourName = bookingData.availability?.item?.name || bookingData.item?.name || bookingData.tour_name;
+    const tourDate = bookingData.availability?.start_datetime || bookingData.start_datetime || bookingData.tour_date;
+    const passengerCount = bookingData.customer_count || bookingData.passenger_count || 1;
+    const amount = bookingData.amount || bookingData.price || 0;
+    const status = bookingData.status || 'confirmed';
+    const bookingSource = bookingData.booking_source || bookingData.source || 'fareharbor';
+
+    console.log('💾 Saving booking data:');
+    console.log(`  FareHarbor ID: ${fareharborId}`);
+    console.log(`  Customer: ${customerName} (${customerEmail})`);
+    console.log(`  Tour: ${tourName}`);
+    console.log(`  Amount: $${amount}`);
+
+    if (!fareharborId) {
+      console.error('❌ No FareHarbor ID found in booking data');
+      console.log('Full booking data:', JSON.stringify(bookingData, null, 2));
+      return;
+    }
+
     await pool.query(`
       INSERT INTO bookings (
         fareharbor_id, customer_id, customer_email, customer_name,
@@ -309,27 +332,33 @@ async function saveBooking(bookingData, customerId) {
         status = EXCLUDED.status,
         amount = EXCLUDED.amount,
         passenger_count = EXCLUDED.passenger_count,
+        customer_email = EXCLUDED.customer_email,
+        customer_name = EXCLUDED.customer_name,
+        tour_name = EXCLUDED.tour_name,
+        tour_date = EXCLUDED.tour_date,
         updated_at = CURRENT_TIMESTAMP
     `, [
-      bookingData.display_id,
+      fareharborId,
       customerId,
-      bookingData.contact?.email,
-      bookingData.contact?.name,
-      bookingData.availability?.item?.name,
-      bookingData.availability?.start_datetime,
-      bookingData.customer_count,
-      bookingData.amount,
-      bookingData.status,
-      bookingData.booking_source || 'unknown',
+      customerEmail,
+      customerName,
+      tourName,
+      tourDate,
+      passengerCount,
+      amount,
+      status,
+      bookingSource,
       bookingData.special_requests || null,
       JSON.stringify(bookingData)
     ]);
-    
-    console.log('✅ Booking saved to database');
+
+    console.log('✅ Booking saved to database successfully');
   } catch (error) {
     console.error('❌ Error saving booking:', error);
+    console.log('Booking data that failed:', JSON.stringify(bookingData, null, 2));
     throw error;
   }
+}
 }
 
 // Main webhook endpoint
