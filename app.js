@@ -94,27 +94,27 @@ async function initializeDatabase() {
 function verifyWebhookSignature(req, res, next) {
   const signature = req.headers['x-fareharbor-signature'];
   const webhookSecret = process.env.FAREHARBOR_WEBHOOK_SECRET;
-  
+
   console.log('🔐 Webhook received with signature:', signature ? 'present' : 'missing');
-  
+
   if (!webhookSecret) {
     console.warn('⚠️ FAREHARBOR_WEBHOOK_SECRET not set - skipping signature verification');
     return next();
   }
-  
+
   if (!signature) {
     console.error('❌ No signature found in headers');
     return res.status(401).json({ error: 'No signature provided' });
   }
-  
+
   try {
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
       .update(req.rawBody)
       .digest('hex');
-    
+
     const providedSignature = signature.startsWith('sha256=') ? signature.slice(7) : signature;
-    
+
     if (crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(providedSignature))) {
       console.log('✅ Webhook signature verified successfully');
       next();
@@ -142,7 +142,7 @@ async function saveWebhookEvent(eventType, fareharborId, rawPayload, status = 's
 
 async function saveOrUpdateCustomer(customerData) {
   if (!customerData) return null;
-  
+
   const email = customerData.email || customerData.customer?.email;
   const name = customerData.name || customerData.customer?.name;
   const phone = customerData.phone || customerData.customer?.phone;
@@ -163,7 +163,7 @@ async function saveOrUpdateCustomer(customerData) {
         updated_at = CURRENT_TIMESTAMP
       RETURNING id
     `, [email, name, phone]);
-    
+
     return result.rows[0].id;
   } catch (error) {
     console.error('Error saving customer:', error);
@@ -238,7 +238,7 @@ async function saveBooking(bookingData, customerId) {
 // Enhanced webhook endpoint with better logging
 app.post('/webhook', verifyWebhookSignature, async (req, res) => {
   const { event_type, payload, timestamp } = req.body;
-  
+
   console.log('=== WEBHOOK RECEIVED ===');
   console.log(`Time: ${new Date().toISOString()}`);
   console.log(`Event Type: ${event_type}`);
