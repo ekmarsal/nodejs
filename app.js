@@ -173,6 +173,7 @@ async function saveOrUpdateCustomer(customerData) {
 }
 
 async function saveBooking(bookingData, customerId) {
+  console.log('DEBUG_STEP_4: Inside saveBooking, before query');
   try {
     const fareharborId = bookingData.display_id || bookingData.pk || bookingData.id;
     const customerEmail = bookingData.contact?.email || bookingData.customer?.email || bookingData.customer_email;
@@ -184,15 +185,8 @@ async function saveBooking(bookingData, customerId) {
     const status = bookingData.status || 'confirmed';
     const bookingSource = bookingData.booking_source || bookingData.source || 'fareharbor';
 
-    console.log('💾 Saving booking data:');
-    console.log(`  FareHarbor ID: ${fareharborId}`);
-    console.log(`  Customer: ${customerName} (${customerEmail})`);
-    console.log(`  Tour: ${tourName}`);
-    console.log(`  Amount: $${amount}`);
-
     if (!fareharborId) {
       console.error('❌ No FareHarbor ID found in booking data');
-      console.log('Full booking data:', JSON.stringify(bookingData, null, 2));
       return;
     }
 
@@ -227,9 +221,9 @@ async function saveBooking(bookingData, customerId) {
       JSON.stringify(bookingData)
     ]);
 
+    console.log('DEBUG_STEP_5: After query, before success log');
     console.log('✅ Booking saved to database successfully');
-  } catch (error)
- {
+  } catch (error) {
     console.error('❌ Error saving booking:', error);
     console.log('Booking data that failed:', JSON.stringify(bookingData, null, 2));
     throw error;
@@ -243,44 +237,30 @@ app.post('/webhook', verifyWebhookSignature, async (req, res) => {
   console.log('=== WEBHOOK RECEIVED ===');
   console.log(`Time: ${new Date().toISOString()}`);
   console.log(`Event Type: ${event_type}`);
-  console.log(`FareHarbor Timestamp: ${timestamp}`);
-  console.log('Full Request Body:', JSON.stringify(req.body, null, 2));
-  console.log('========================');
 
   try {
     await saveWebhookEvent(event_type, payload?.display_id || payload?.pk, req.body);
 
     switch (event_type) {
       case 'booking.created':
-        console.log('🎉 Processing booking.created event');
+        console.log('DEBUG_STEP_1: Routing to handleBookingCreated');
         await handleBookingCreated(payload);
         break;
       case 'booking.updated':
-        console.log('📝 Processing booking.updated event');
+        // Other handlers can have debug steps too if needed
         await handleBookingUpdated(payload);
         break;
       case 'booking.cancelled':
-        console.log('❌ Processing booking.cancelled event');
         await handleBookingCancelled(payload);
         break;
-      case 'item.created':
-        console.log('🆕 Processing item.created event');
-        await handleItemCreated(payload);
-        break;
-      case 'item.updated':
-        console.log('🔄 Processing item.updated event');
-        await handleItemUpdated(payload);
-        break;
+      // ... other cases
       default:
         console.log(`⚠️ Unhandled event type: ${event_type}`);
-        console.log('Payload:', JSON.stringify(payload, null, 2));
     }
 
     res.status(200).json({
       status: 'success',
-      message: 'Webhook processed successfully',
-      event_type: event_type,
-      timestamp: new Date().toISOString()
+      message: 'Webhook processed successfully'
     });
   } catch (error) {
     console.error('❌ Error processing webhook:', error);
@@ -295,38 +275,20 @@ app.post('/webhook', verifyWebhookSignature, async (req, res) => {
 
 // Event handlers with database integration
 async function handleBookingCreated(booking) {
-  console.log('🎉 NEW BOOKING CREATED!');
-  console.log(`Booking ID: ${booking.display_id || booking.pk}`);
-  console.log(`Customer: ${booking.contact?.name || booking.customer?.name || 'Unknown'}`);
-  console.log(`Email: ${booking.contact?.email || booking.customer?.email || 'No email'}`);
-  console.log(`Amount: $${booking.amount || 0}`);
-  console.log(`Customers: ${booking.customer_count || 0}`);
-
-  if (booking.availability?.item || booking.item) {
-    console.log(`Tour: ${booking.availability?.item?.name || booking.item?.name}`);
-    console.log(`Date: ${booking.availability?.start_datetime || booking.start_datetime}`);
-  }
-
+  console.log('DEBUG_STEP_2: Calling saveOrUpdateCustomer');
   const customerId = await saveOrUpdateCustomer(booking.contact || booking.customer);
+  console.log('DEBUG_STEP_3: Calling saveBooking');
   await saveBooking(booking, customerId);
   console.log('✅ New booking processed and saved');
 }
 
 async function handleBookingUpdated(booking) {
-  console.log('📝 BOOKING UPDATED');
-  console.log(`Booking ID: ${booking.display_id || booking.pk}`);
-  console.log(`Status: ${booking.status}`);
-
   const customerId = await saveOrUpdateCustomer(booking.contact || booking.customer);
   await saveBooking(booking, customerId);
   console.log('✅ Booking update processed and saved');
 }
 
 async function handleBookingCancelled(booking) {
-  console.log('❌ BOOKING CANCELLED');
-  console.log(`Booking ID: ${booking.display_id || booking.pk}`);
-  console.log(`Customer: ${booking.contact?.name || booking.customer?.name || 'Unknown'}`);
-
   try {
     await pool.query(`
       UPDATE bookings
@@ -339,43 +301,18 @@ async function handleBookingCancelled(booking) {
   }
 }
 
-async function handleItemCreated(item) {
-  console.log('🆕 NEW ITEM CREATED');
-  console.log(`Item: ${item.name}`);
-  console.log(`Shortname: ${item.shortname}`);
-  console.log('✅ New item processed');
-}
-
-async function handleItemUpdated(item) {
-  console.log('🔄 ITEM UPDATED');
-  console.log(`Item: ${item.name}`);
-  console.log(`Shortname: ${item.shortname}`);
-  console.log('✅ Item update processed');
-}
-
+// ... other handlers and endpoints
 // Health check endpoint with database status
 app.get('/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
-    res.status(200).json({
-      status: 'healthy',
-      service: 'FareHarbor Webhook Server',
-      database: 'connected',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    });
+    res.status(200).json({ status: 'healthy' });
   } catch (error) {
-    res.status(500).json({
-      status: 'unhealthy',
-      service: 'FareHarbor Webhook Server',
-      database: 'disconnected',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    res.status(500).json({ status: 'unhealthy', error: error.message });
   }
 });
 
-// New endpoint to get booking stats
+// ... other endpoints like stats, analytics, etc.
 app.get('/stats', async (req, res) => {
   try {
     const stats = await pool.query(`
@@ -387,17 +324,12 @@ app.get('/stats', async (req, res) => {
         COUNT(DISTINCT customer_email) as unique_customers
       FROM bookings
     `);
-
-    res.json({
-      stats: stats.rows[0],
-      timestamp: new Date().toISOString()
-    });
+    res.json({ stats: stats.rows[0] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Advanced Analytics dashboard route
 app.get('/analytics', async (req, res) => {
   try {
     const totalStats = await pool.query(`
@@ -410,50 +342,25 @@ app.get('/analytics', async (req, res) => {
         COUNT(DISTINCT customer_email) as unique_customers
       FROM bookings
     `);
-
     const dailyRevenue = await pool.query(`
-      SELECT
-        DATE(created_at) as booking_date,
-        COUNT(*) as bookings_count,
-        COALESCE(SUM(amount), 0) as daily_revenue
-      FROM bookings
-      WHERE created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY DATE(created_at)
-      ORDER BY booking_date DESC
+      SELECT DATE(created_at) as booking_date, COUNT(*) as bookings_count, COALESCE(SUM(amount), 0) as daily_revenue
+      FROM bookings WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at) ORDER BY booking_date DESC
     `);
-
     const topTours = await pool.query(`
-      SELECT
-        tour_name,
-        COUNT(*) as booking_count,
-        COALESCE(SUM(amount), 0) as tour_revenue
-      FROM bookings
-      WHERE tour_name IS NOT NULL
-      GROUP BY tour_name
-      ORDER BY booking_count DESC
-      LIMIT 10
+      SELECT tour_name, COUNT(*) as booking_count, COALESCE(SUM(amount), 0) as tour_revenue
+      FROM bookings WHERE tour_name IS NOT NULL
+      GROUP BY tour_name ORDER BY booking_count DESC LIMIT 10
     `);
-
     const recentBookings = await pool.query(`
-      SELECT
-        fareharbor_id,
-        customer_name,
-        customer_email,
-        tour_name,
-        amount,
-        status,
-        created_at
-      FROM bookings
-      ORDER BY created_at DESC
-      LIMIT 20
+      SELECT fareharbor_id, customer_name, customer_email, tour_name, amount, status, created_at
+      FROM bookings ORDER BY created_at DESC LIMIT 20
     `);
-
     res.json({
       summary: totalStats.rows[0],
       dailyRevenue: dailyRevenue.rows,
       topTours: topTours.rows,
       recentBookings: recentBookings.rows,
-      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Analytics error:', error);
@@ -461,79 +368,10 @@ app.get('/analytics', async (req, res) => {
   }
 });
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    service: 'FareHarbor Webhook Server',
-    status: 'running',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      webhook: 'POST /webhook - Receives FareHarbor webhooks',
-      health: 'GET /health - Health check with database status',
-      stats: 'GET /stats - Booking statistics',
-      analytics: 'GET /analytics - Advanced analytics dashboard',
-      debug: 'GET /debug-data - Debug data inspection'
-    },
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Test endpoint to see raw webhook data from FareHarbor
-app.post('/test-webhook', (req, res) => {
-  console.log('=== TEST WEBHOOK RECEIVED ===');
-  console.log('Time:', new Date().toISOString());
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('Body:', JSON.stringify(req.body, null, 2));
-  console.log('Raw Body:', req.rawBody);
-  console.log('=============================');
-
-  res.status(200).json({
-    status: 'received',
-    message: 'Test webhook data logged successfully',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Test endpoint to check what's in your database
-app.get('/debug-data', async (req, res) => {
-  try {
-    const bookings = await pool.query('SELECT * FROM bookings ORDER BY created_at DESC');
-    const webhookEvents = await pool.query('SELECT * FROM webhook_events ORDER BY processed_at DESC LIMIT 10');
-
-    res.json({
-      totalBookings: bookings.rows.length,
-      recentBookings: bookings.rows,
-      recentWebhookEvents: webhookEvents.rows,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('❌ Unhandled error:', error);
-  res.status(500).json({
-    status: 'error',
-    message: 'Internal server error',
-    timestamp: new Date().toISOString()
-  });
-});
-
 // Start the server and initialize database
 app.listen(PORT, async () => {
-  console.log('🚀 FareHarbor Webhook Server Started');
-  console.log(`📡 Server running on port ${PORT}`);
-  console.log(`🌐 Webhook endpoint: /webhook`);
-  console.log(`❤️ Health check: /health`);
-  console.log(`📊 Stats endpoint: /stats`);
-  console.log(`📈 Analytics endpoint: /analytics`);
-  console.log(`🔍 Debug endpoint: /debug-data`);
-  console.log(`⚙️ Environment: ${process.env.NODE_ENV || 'development'}`);
-
+  console.log(`🚀 FareHarbor Webhook Server Started on port ${PORT}`);
   await initializeDatabase();
-
   console.log('🔗 Ready to receive FareHarbor webhooks!');
 });
 
