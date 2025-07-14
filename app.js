@@ -1,4 +1,4 @@
-// Forcing a new build
+// FINAL COMPLETE DEBUG VERSION
 require('dotenv').config();
 const express = require('express');
 const crypto = require('crypto');
@@ -95,27 +95,27 @@ async function initializeDatabase() {
 function verifyWebhookSignature(req, res, next) {
   const signature = req.headers['x-fareharbor-signature'];
   const webhookSecret = process.env.FAREHARBOR_WEBHOOK_SECRET;
-
+  
   console.log('🔐 Webhook received with signature:', signature ? 'present' : 'missing');
-
+  
   if (!webhookSecret) {
     console.warn('⚠️ FAREHARBOR_WEBHOOK_SECRET not set - skipping signature verification');
     return next();
   }
-
+  
   if (!signature) {
     console.error('❌ No signature found in headers');
     return res.status(401).json({ error: 'No signature provided' });
   }
-
+  
   try {
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
       .update(req.rawBody)
       .digest('hex');
-
+    
     const providedSignature = signature.startsWith('sha256=') ? signature.slice(7) : signature;
-
+    
     if (crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(providedSignature))) {
       console.log('✅ Webhook signature verified successfully');
       next();
@@ -143,7 +143,7 @@ async function saveWebhookEvent(eventType, fareharborId, rawPayload, status = 's
 
 async function saveOrUpdateCustomer(customerData) {
   if (!customerData) return null;
-
+  
   const email = customerData.email || customerData.customer?.email;
   const name = customerData.name || customerData.customer?.name;
   const phone = customerData.phone || customerData.customer?.phone;
@@ -164,7 +164,7 @@ async function saveOrUpdateCustomer(customerData) {
         updated_at = CURRENT_TIMESTAMP
       RETURNING id
     `, [email, name, phone]);
-
+    
     return result.rows[0].id;
   } catch (error) {
     console.error('Error saving customer:', error);
@@ -220,7 +220,7 @@ async function saveBooking(bookingData, customerId) {
       bookingData.special_requests || null,
       JSON.stringify(bookingData)
     ]);
-
+    
     console.log('DEBUG_STEP_5: After query, before success log');
     console.log('✅ Booking saved to database successfully');
   } catch (error) {
@@ -233,7 +233,7 @@ async function saveBooking(bookingData, customerId) {
 // Enhanced webhook endpoint with better logging
 app.post('/webhook', verifyWebhookSignature, async (req, res) => {
   const { event_type, payload, timestamp } = req.body;
-
+  
   console.log('=== WEBHOOK RECEIVED ===');
   console.log(`Time: ${new Date().toISOString()}`);
   console.log(`Event Type: ${event_type}`);
@@ -247,13 +247,17 @@ app.post('/webhook', verifyWebhookSignature, async (req, res) => {
         await handleBookingCreated(payload);
         break;
       case 'booking.updated':
-        // Other handlers can have debug steps too if needed
         await handleBookingUpdated(payload);
         break;
       case 'booking.cancelled':
         await handleBookingCancelled(payload);
         break;
-      // ... other cases
+      case 'item.created':
+        await handleItemCreated(payload);
+        break;
+      case 'item.updated':
+        await handleItemUpdated(payload);
+        break;
       default:
         console.log(`⚠️ Unhandled event type: ${event_type}`);
     }
@@ -301,78 +305,11 @@ async function handleBookingCancelled(booking) {
   }
 }
 
-// ... other handlers and endpoints
-// Health check endpoint with database status
-app.get('/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.status(200).json({ status: 'healthy' });
-  } catch (error) {
-    res.status(500).json({ status: 'unhealthy', error: error.message });
-  }
-});
+async function handleItemCreated(item) {
+  console.log('🆕 NEW ITEM CREATED');
+  console.log(`Item: ${item.name}`);
+}
 
-// ... other endpoints like stats, analytics, etc.
-app.get('/stats', async (req, res) => {
-  try {
-    const stats = await pool.query(`
-      SELECT
-        COUNT(*) as total_bookings,
-        SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_bookings,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_bookings,
-        COALESCE(SUM(amount), 0) as total_revenue,
-        COUNT(DISTINCT customer_email) as unique_customers
-      FROM bookings
-    `);
-    res.json({ stats: stats.rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/analytics', async (req, res) => {
-  try {
-    const totalStats = await pool.query(`
-      SELECT
-        COUNT(*) as total_bookings,
-        SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_bookings,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_bookings,
-        COALESCE(SUM(amount), 0) as total_revenue,
-        COALESCE(AVG(amount), 0) as average_booking_value,
-        COUNT(DISTINCT customer_email) as unique_customers
-      FROM bookings
-    `);
-    const dailyRevenue = await pool.query(`
-      SELECT DATE(created_at) as booking_date, COUNT(*) as bookings_count, COALESCE(SUM(amount), 0) as daily_revenue
-      FROM bookings WHERE created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY DATE(created_at) ORDER BY booking_date DESC
-    `);
-    const topTours = await pool.query(`
-      SELECT tour_name, COUNT(*) as booking_count, COALESCE(SUM(amount), 0) as tour_revenue
-      FROM bookings WHERE tour_name IS NOT NULL
-      GROUP BY tour_name ORDER BY booking_count DESC LIMIT 10
-    `);
-    const recentBookings = await pool.query(`
-      SELECT fareharbor_id, customer_name, customer_email, tour_name, amount, status, created_at
-      FROM bookings ORDER BY created_at DESC LIMIT 20
-    `);
-    res.json({
-      summary: totalStats.rows[0],
-      dailyRevenue: dailyRevenue.rows,
-      topTours: topTours.rows,
-      recentBookings: recentBookings.rows,
-    });
-  } catch (error) {
-    console.error('Analytics error:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics data' });
-  }
-});
-
-// Start the server and initialize database
-app.listen(PORT, async () => {
-  console.log(`🚀 FareHarbor Webhook Server Started on port ${PORT}`);
-  await initializeDatabase();
-  console.log('🔗 Ready to receive FareHarbor webhooks!');
-});
-
-module.exports = app;
+async function handleItemUpdated(item) {
+  console.log('🔄 ITEM UPDATED');
+  console.log(`Item: ${item.
