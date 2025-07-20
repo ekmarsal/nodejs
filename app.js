@@ -1,12 +1,11 @@
+// FINAL COMPLETE DEBUG VERSION
 require('dotenv').config();
 const express = require('express');
 const crypto = require('crypto');
 const { Pool } = require('pg');
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// --- Middleware Setup ---
+// CORS headers first
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -14,32 +13,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// This MUST come before the webhook handler
+// Raw body capture for webhook signature verification - with increased limit
 app.use('/webhook', express.raw({ type: 'application/json', limit: '50mb' }), (req, res, next) => {
-    req.rawBody = req.body;
-    try {
-        if (req.rawBody && req.rawBody.length > 0) {
-            req.body = JSON.parse(req.body.toString());
-        } else {
-            req.body = {};
-        }
-    } catch (e) {
-        console.error("Error parsing raw body:", e);
+  req.rawBody = req.body;
+  try {
+    if (req.rawBody && req.rawBody.length > 0) {
+        req.body = JSON.parse(req.body.toString());
+    } else {
         req.body = {};
     }
-    next();
+  } catch (e) {
+    console.error("Error parsing raw body:", e);
+    req.body = {};
+  }
+  next();
 });
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// --- Database Connection ---
+const PORT = process.env.PORT || 3000;
+
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// --- Database Helper Functions ---
+// Database helper functions
 async function saveOrUpdateCustomer(customerData) {
     if (!customerData) return null;
     const email = customerData.email || customerData.customer?.email;
@@ -65,15 +65,16 @@ async function saveOrUpdateCustomer(customerData) {
 async function saveBooking(bookingData, customerId) {
     console.log('DEBUG_STEP_4: Inside saveBooking, before query');
     try {
-        const fareharborId = bookingData.booking.pk;
-        const customerEmail = bookingData.booking.contact.email;
-        const customerName = bookingData.booking.contact.name;
-        const tourName = bookingData.booking.availability.item.name;
-        const tourDate = bookingData.booking.availability.start_at;
-        const passengerCount = bookingData.booking.customer_count;
-        const amount = bookingData.booking.invoice_price / 100; // Assuming price is in cents
-        const status = bookingData.booking.status;
-        const bookingSource = bookingData.booking.source;
+        const booking = bookingData.booking;
+        const fareharborId = booking.pk;
+        const customerEmail = booking.contact.email;
+        const customerName = booking.contact.name;
+        const tourName = booking.availability.item.name;
+        const tourDate = booking.availability.start_at;
+        const passengerCount = booking.customer_count;
+        const amount = booking.invoice_price / 100; // FareHarbor provides price in cents
+        const status = booking.status;
+        const bookingSource = booking.source;
 
         if (!fareharborId) {
             console.error('❌ No FareHarbor ID found in booking data');
@@ -99,9 +100,8 @@ app.post('/webhook', async (req, res) => {
     console.log('--- FULL INCOMING WEBHOOK DATA ---');
     console.log(JSON.stringify(req.body, null, 2));
 
-    const bookingData = req.body; // The entire body is the booking data object
+    const bookingData = req.body;
 
-    // Check if it's a booking-related webhook
     if (bookingData && bookingData.booking) {
         console.log('DEBUG_STEP_1: Booking data found, proceeding.');
         try {
@@ -123,19 +123,9 @@ app.post('/webhook', async (req, res) => {
 });
 
 // --- Other Routes ---
-app.get('/analytics', async (req, res) => {
-    // ... your analytics logic
-    res.json({ message: "Analytics endpoint" });
-});
-
-app.get('/stats', async (req, res) => {
-    // ... your stats logic
-    res.json({ message: "Stats endpoint" });
-});
-
-app.get('/', (req, res) => {
-    res.json({ service: 'FareHarbor Webhook Server', status: 'running' });
-});
+app.get('/analytics', (req, res) => res.json({ message: "Analytics endpoint active" }));
+app.get('/stats', (req, res) => res.json({ message: "Stats endpoint active" }));
+app.get('/', (req, res) => res.json({ service: 'FareHarbor Webhook Server', status: 'running' }));
 
 // --- Server Start ---
 app.listen(PORT, () => {
