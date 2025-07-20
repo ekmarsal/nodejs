@@ -1,15 +1,16 @@
 {
   "name": "fareharbor-webhook",
   "version": "1.0.0",
-  "description": "FareHarbor webhook server for real-time booking notifications",
+  "description": "Webhook server for FareHarbor",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "start": "node app.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "dotenv": "^16.3.1",
-    "pg": "^8.11.3"
-  }
+    "dotenv": "^16.4.5",
+    "pg": "^8.11.5"
+  },
+  "author": "",
+  "license": "ISC"
 }
