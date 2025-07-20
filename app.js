@@ -38,6 +38,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const PORT = process.env.PORT || 3000;
 
 // --- Route Definitions ---
+// ADD THE DEBUG LOG HERE
+app.post('/webhook', (req, res, next) => {
+    console.log('INCOMING DATA:', JSON.stringify(req.body, null, 2));
+    next();
+});
 app.use('/webhook', webhookRoutes);
 app.use('/', analyticsRoutes); // Use this for root paths like /stats and /analytics
 
