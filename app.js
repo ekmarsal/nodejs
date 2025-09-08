@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const axios = require('axios');
 const app = express();
 
 // CORS headers first
@@ -88,6 +89,19 @@ async function saveBooking(bookingData, customerId) {
             [fareharborId, customerId, customerEmail, customerName, tourName, tourDate, passengerCount, amount, status, bookingSource, JSON.stringify(bookingData)]
         );
         console.log('DEBUG_STEP_5: After query, booking saved successfully');
+
+        // Forward the booking data to chattabot
+        const apiEndpoint = process.env.CHATTABOT_URL;
+        if (apiEndpoint) {
+            try {
+                await axios.post(apiEndpoint, bookingData);
+                console.log('✅ Booking data forwarded successfully to chattabot');
+            } catch (error) {
+                console.warn('⚠️ Error forwarding booking data to chattabot:', error.message);
+            }
+        } else {
+            console.warn('⚠️ CHATTABOT_URL is not defined');
+        }
     } catch (error) {
         console.error('❌ Error saving booking:', error);
         console.log('Booking data that failed:', JSON.stringify(bookingData, null, 2));
