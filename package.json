@@ -9,7 +9,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "dotenv": "^16.4.5",
-    "pg": "^8.11.5"
+    "pg": "^8.11.5",
+    "axios": "^1.7.0"
   },
   "author": "",
   "license": "ISC"
