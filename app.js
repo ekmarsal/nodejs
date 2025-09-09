@@ -94,8 +94,11 @@ async function saveBooking(bookingData, customerId) {
         const apiEndpoint = process.env.CHATTABOT_URL;
         if (apiEndpoint) {
             try {
-                bookingData.business_name = process.env.BUSINESS_NAME;
-                await axios.post(apiEndpoint, bookingData);
+                const payload = {
+                    business_name: process.env.BUSINESS_NAME,
+                    data: bookingData
+                }
+                await axios.post(apiEndpoint, payload);
                 console.log('✅ Booking data forwarded successfully to chattabot');
             } catch (error) {
                 console.warn('⚠️ Error forwarding booking data to chattabot:', error.message);
